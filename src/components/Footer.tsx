@@ -7,13 +7,16 @@ import { Skeleton } from './ui/skeleton';
 
 export function Footer() {
   const [logoUrl, setLogoUrl] = useState('');
+  const [loading, setLoading] = useState(true);
 
    useEffect(() => {
     const fetchLogo = async () => {
+      setLoading(true);
       const settings = await getSettings();
       if (settings.success && settings.data?.logoUrl) {
         setLogoUrl(settings.data.logoUrl);
       }
+      setLoading(false);
     };
     fetchLogo();
   }, []);
@@ -23,7 +26,9 @@ export function Footer() {
       <div className="container mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="space-y-4 col-span-2 md:col-span-1">
-             {logoUrl ? (
+             {loading ? (
+                <Skeleton className="h-[50px] w-[150px]" />
+             ) : logoUrl ? (
                 <Image src={logoUrl} alt="Raspadinha Oficial" width={150} height={50} data-ai-hint="logo" />
               ) : (
                 <Skeleton className="h-[50px] w-[150px]" />
