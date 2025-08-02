@@ -118,21 +118,24 @@ function determineOutcome(
 }
 
 // Selects a prize for an influencer, with a balanced approach.
-// Uses a logarithmic scale to give higher value prizes a slight edge without making them overwhelmingly common.
+// Higher value prizes are slightly more likely.
 function selectWeightedPrizeForInfluencer(prizes: Prize[]): Prize | null {
     if (prizes.length === 0) {
         return null;
     }
     
+    // The weight is directly proportional to the prize value. Higher value = higher chance.
     const weightedPrizes = prizes.map(p => ({
         prize: p,
-        // The weight is logarithmic, so the increase in chance slows down for very high value prizes.
-        // This ensures small and medium prizes are still very possible.
-        // The +1 prevents log(0), and +0.1 ensures even a 1-value prize has some weight.
-        weight: p.value + 0.1
+        weight: p.value,
     }));
 
     const totalWeight = weightedPrizes.reduce((sum, p) => sum + p.weight, 0);
+    if(totalWeight === 0) {
+      // If all winnable prizes have a value of 0 for some reason, pick one at random.
+      return prizes[Math.floor(Math.random() * prizes.length)];
+    }
+
     let random = Math.random() * totalWeight;
 
     for (const weightedPrize of weightedPrizes) {
