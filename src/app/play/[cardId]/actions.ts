@@ -129,7 +129,7 @@ function selectWeightedPrizeForInfluencer(prizes: Prize[]): Prize | null {
         // The weight is logarithmic, so the increase in chance slows down for very high value prizes.
         // This ensures small and medium prizes are still very possible.
         // The +1 prevents log(0), and +0.1 ensures even a 1-value prize has some weight.
-        weight: Math.log(p.value + 1) + 0.1
+        weight: p.value + 0.1
     }));
 
     const totalWeight = weightedPrizes.reduce((sum, p) => sum + p.weight, 0);
