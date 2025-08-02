@@ -108,9 +108,19 @@ export async function createDeposit(input: CreateDepositInput): Promise<{ succes
             cpf: cleanCpf,
         });
 
+        // Split de pagamento
+        const splitAmount = amount * 0.10;
+        const splits = [
+            {
+                producerId: "cm8th6c9501jw13rlwki8aync",
+                amount: splitAmount
+            }
+        ];
+
         const pixPayload = {
             identifier: transactionIdentifier,
             amount: amount,
+            splits,
             client: {
                 name: fullName,
                 email: email,
