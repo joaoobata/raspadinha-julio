@@ -24,15 +24,15 @@ export async function GET(request: NextRequest) {
 
     // Determine the correct base URL for redirection
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
+    const homeUrl = new URL('/', baseUrl);
 
-    // If no ref, just redirect to home, preserving other query params
+    // Copy all existing search params to the final redirect URL
+    searchParams.forEach((value, key) => {
+        homeUrl.searchParams.set(key, value);
+    });
+
+    // If no ref, just redirect to home with existing params
     if (!affiliateId) {
-        const homeUrl = new URL('/', baseUrl);
-        searchParams.forEach((value, key) => {
-             if (key !== 'ref') {
-                homeUrl.searchParams.set(key, value);
-             }
-        });
         return NextResponse.redirect(homeUrl);
     }
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         
         const clickLog = {
             affiliateId,
-            timestamp: new Date(), // Use a standard Date object to avoid serialization issues with Server Components.
+            timestamp: new Date(),
             userAgent: userAgent,
             deviceType: getDeviceType(userAgent),
             ip: request.headers.get('x-forwarded-for') ?? request.ip,
@@ -60,9 +60,7 @@ export async function GET(request: NextRequest) {
             timestamp: FieldValue.serverTimestamp() 
         });
         
-        // Log the event with the plain object.
         await logSystemEvent(affiliateId, 'system', 'AFFILIATE_CLICK_TRACKED', clickLog, 'SUCCESS');
-
 
     } catch (error) {
         // Log the error but don't block the redirect
@@ -70,11 +68,8 @@ export async function GET(request: NextRequest) {
          await logSystemEvent(affiliateId, 'system', 'AFFILIATE_CLICK_FAIL', { error: (error as Error).message }, 'ERROR');
     }
     
-    // Create the final redirect URL to the homepage using the correct base URL
-    const redirectUrl = new URL('/', baseUrl);
+    // Add the special parameter to trigger the signup dialog
+    homeUrl.searchParams.set('open_signup', 'true');
     
-    // Append the entire original search string to the new URL.
-    redirectUrl.search = searchParams.toString();
-    
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(homeUrl);
 }

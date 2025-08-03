@@ -34,7 +34,6 @@ export interface Scratchcard {
     createdAt?: string | null;
     updatedAt?: string | null;
     categoryIds?: string[];
-    rtpRate?: number;
 }
 
 async function uploadImageAndGetURL(fileBuffer: Buffer, fileName: string, mimeType: string, folder: 'scratchcards' | 'prizes'): Promise<string> {
@@ -153,13 +152,6 @@ export async function saveScratchcard(
         } else if (card.scratchImageUrl) {
             dataToSave.scratchImageUrl = card.scratchImageUrl;
         }
-        
-        if (typeof card.rtpRate === 'number' && !isNaN(card.rtpRate)) {
-             dataToSave.rtpRate = card.rtpRate;
-        } else {
-            dataToSave.rtpRate = FieldValue.delete();
-        }
-
 
         const adminDb = getAdminDb();
         const scratchcardsCollection = adminDb.collection('scratchcards');

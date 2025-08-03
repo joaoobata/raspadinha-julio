@@ -61,7 +61,13 @@ export function Header() {
       }
     };
     fetchLogo();
-
+    
+    // Check for query params to open dialogs
+    if (searchParams.get('open_signup') === 'true' && !user) {
+        openAuthDialog('signup');
+        // Clean the URL to avoid re-triggering
+        router.replace('/', { scroll: false });
+    }
     if (searchParams.get('first_deposit') === 'true' && user) {
         setIsDepositOpen(true);
         // Clean the URL to avoid re-triggering

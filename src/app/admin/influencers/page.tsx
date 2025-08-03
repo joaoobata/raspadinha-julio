@@ -12,8 +12,17 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LoaderCircle, UserPlus, DollarSign, Percent, Copy, RefreshCw, Trash2 } from 'lucide-react';
-import { listInfluencers, createDemoAccounts, setBulkBalance, setBulkRtp, InfluencerData, addInfluencerByEmail, removeInfluencerRole } from './actions';
+import { LoaderCircle, UserPlus, DollarSign, Percent, Copy, RefreshCw, Trash2, Award } from 'lucide-react';
+import { 
+    listInfluencers, 
+    createDemoAccounts, 
+    setBulkBalance, 
+    setBulkDemoProfile, 
+    InfluencerData, 
+    addInfluencerByEmail, 
+    removeInfluencerRole,
+    DemoPrizeProfile
+} from './actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +33,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const profileLabels: Record<DemoPrizeProfile, string> = {
+    low: 'Baixo',
+    medium: 'Médio',
+    high: 'Alto'
+};
 
 export default function InfluencersPage() {
     const [adminUser] = useAuthState(auth);
@@ -39,8 +55,8 @@ export default function InfluencersPage() {
     const [bulkBalance, setBulkBalanceValue] = useState('100');
     const [isSettingBalance, setIsSettingBalance] = useState(false);
 
-    const [bulkRtp, setBulkRtpValue] = useState('');
-    const [isSettingRtp, setIsSettingRtp] = useState(false);
+    const [bulkDemoProfile, setBulkDemoProfileValue] = useState<DemoPrizeProfile>('medium');
+    const [isSettingProfile, setIsSettingProfile] = useState(false);
     
     const [addByEmail, setAddByEmail] = useState('');
     const [isAddingByEmail, setIsAddingByEmail] = useState(false);
@@ -98,18 +114,17 @@ export default function InfluencersPage() {
         setIsSettingBalance(false);
     };
     
-    const handleSetBulkRtp = async () => {
+    const handleSetBulkDemoProfile = async () => {
         if (!adminUser) return;
-        setIsSettingRtp(true);
-        const rtp = bulkRtp.trim() === '' ? null : parseFloat(bulkRtp);
-        const result = await setBulkRtp(rtp, adminUser.uid);
+        setIsSettingProfile(true);
+        const result = await setBulkDemoProfile(bulkDemoProfile, adminUser.uid);
         if (result.success) {
-            toast({ title: 'Sucesso!', description: `O RTP de ${result.count} contas foi atualizado.` });
+            toast({ title: 'Sucesso!', description: `O Perfil de Prêmio de ${result.count} contas foi atualizado.` });
             await fetchInfluencers();
         } else {
             toast({ variant: 'destructive', title: 'Erro', description: result.error });
         }
-        setIsSettingRtp(false);
+        setIsSettingProfile(false);
     };
     
     const handleAddInfluencerByEmail = async () => {
@@ -200,11 +215,20 @@ export default function InfluencersPage() {
                         </div>
                          <div className="flex items-end gap-4">
                             <div className="space-y-2 flex-1">
-                                <Label htmlFor="rtp" className="flex items-center gap-1"><Percent/> RTP em Massa (%)</Label>
-                                <Input id="rtp" type="number" placeholder="Deixe em branco para usar o global" value={bulkRtp} onChange={e => setBulkRtpValue(e.target.value)} />
+                                <Label htmlFor="demo-profile" className="flex items-center gap-1"><Award/> Perfil de Prêmio (Demo)</Label>
+                                <Select value={bulkDemoProfile} onValueChange={(value: DemoPrizeProfile) => setBulkDemoProfileValue(value)}>
+                                    <SelectTrigger id="demo-profile">
+                                        <SelectValue placeholder="Selecione um perfil" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="low">Baixo (Prêmios menores)</SelectItem>
+                                        <SelectItem value="medium">Médio (Equilibrado)</SelectItem>
+                                        <SelectItem value="high">Alto (Prêmios maiores)</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                             <Button onClick={handleSetBulkRtp} disabled={isSettingRtp}>
-                                {isSettingRtp ? <LoaderCircle className="animate-spin" /> : 'Aplicar RTP'}
+                             <Button onClick={handleSetBulkDemoProfile} disabled={isSettingProfile}>
+                                {isSettingProfile ? <LoaderCircle className="animate-spin" /> : 'Aplicar Perfil'}
                             </Button>
                         </div>
                     </CardContent>
@@ -247,7 +271,7 @@ export default function InfluencersPage() {
                                 <TableHead>Nome</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Saldo</TableHead>
-                                <TableHead>RTP Customizado</TableHead>
+                                <TableHead>Perfil de Prêmio</TableHead>
                                 <TableHead>Data de Criação</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
@@ -269,7 +293,7 @@ export default function InfluencersPage() {
                                         <TableCell className="font-medium">{inf.name}</TableCell>
                                         <TableCell>{inf.email}</TableCell>
                                         <TableCell>{formatCurrency(inf.balance)}</TableCell>
-                                        <TableCell>{inf.rtpRate !== undefined && inf.rtpRate !== null ? `${inf.rtpRate}%` : 'Global'}</TableCell>
+                                        <TableCell>{profileLabels[inf.demoPrizeProfile || 'medium']}</TableCell>
                                         <TableCell>{inf.createdAt ? new Date(inf.createdAt).toLocaleDateString() : '-'}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="sm" onClick={() => openRemoveConfirmation(inf)}>
@@ -312,7 +336,7 @@ export default function InfluencersPage() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Confirmar Remoção</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Você tem certeza que deseja remover o cargo de influenciador de <strong>{userToRemove?.name}</strong>? Eles não terão mais o RTP customizado, mas a conta não será excluída.
+                            Você tem certeza que deseja remover o cargo de influenciador de <strong>{userToRemove?.name}</strong>? Eles não terão mais o perfil de prêmio customizado, mas a conta não será excluída.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

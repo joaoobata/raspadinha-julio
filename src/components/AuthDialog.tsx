@@ -282,7 +282,7 @@ function SignupForm({ onSignupSuccess, onSwitchToLogin, onFormInteraction }: { o
           lastName,
           phone: phone.replace(/\D/g, ''),
           cpf: cpf.replace(/\D/g, ''),
-          email: email.toLowerCase(),
+          email,
           balance: 0,
           prizeBalance: 0,
           status: 'active',

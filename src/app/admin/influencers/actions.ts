@@ -5,6 +5,18 @@ import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin-init";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { logAdminAction } from "@/lib/logging";
 
+export type DemoPrizeProfile = 'low' | 'medium' | 'high';
+
+export interface InfluencerData {
+    id: string;
+    email: string;
+    name: string;
+    balance: number;
+    demoPrizeProfile?: DemoPrizeProfile;
+    createdAt: string | null;
+}
+
+
 export async function listInfluencers(): Promise<{ success: boolean; data?: InfluencerData[]; error?: string }> {
     try {
         const adminDb = getAdminDb();
@@ -17,7 +29,7 @@ export async function listInfluencers(): Promise<{ success: boolean; data?: Infl
                 email: data.email,
                 name: `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email,
                 balance: data.balance || 0,
-                rtpRate: data.rtpRate,
+                demoPrizeProfile: data.demoPrizeProfile || 'medium', // Default to medium
                 createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate().toISOString() : null,
             };
         });
@@ -96,6 +108,7 @@ export async function createDemoAccounts(count: number, prefix: string, adminId:
                 status: 'active',
                 createdAt: FieldValue.serverTimestamp(),
                 ftd: false,
+                demoPrizeProfile: 'medium', // Default profile
             });
 
             createdAccounts.push({ email, password });
@@ -157,7 +170,7 @@ export async function setBulkBalance(amount: number, adminId: string): Promise<{
 }
 
 
-export async function setBulkRtp(rtp: number | null, adminId: string): Promise<{ success: boolean, error?: string, count?: number }> {
+export async function setBulkDemoProfile(profile: DemoPrizeProfile | null, adminId: string): Promise<{ success: boolean, error?: string, count?: number }> {
     const adminDb = getAdminDb();
     // Admin verification
     if (!adminId) {
@@ -166,40 +179,41 @@ export async function setBulkRtp(rtp: number | null, adminId: string): Promise<{
     try {
         const adminUserDoc = await adminDb.collection('users').doc(adminId).get();
         if (!adminUserDoc.exists || !adminUserDoc.data()?.roles?.includes('admin')) {
-            await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_FAIL', { error: "Permission Denied", rtp }, 'ERROR');
+            await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_FAIL', { error: "Permission Denied", profile }, 'ERROR');
             return { success: false, error: "Acesso negado." };
         }
     } catch(e: any) {
-        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_FAIL', { error: e.message, reason: "Error verifying admin" }, 'ERROR');
+        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_FAIL', { error: e.message, reason: "Error verifying admin" }, 'ERROR');
         return { success: false, error: "Falha ao verificar permissões." };
     }
 
      try {
-         await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_START', { rtp }, 'INFO');
-         if (rtp !== null && (rtp < 0 || rtp > 100)) {
-            throw new Error("RTP deve ser entre 0 e 100.");
+         await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_START', { profile }, 'INFO');
+         if (profile && !['low', 'medium', 'high'].includes(profile)) {
+            throw new Error("Perfil de prêmio inválido.");
         }
 
         const snapshot = await adminDb.collection('users').where('roles', 'array-contains', 'influencer').get();
 
         if (snapshot.empty) {
-            await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_SUCCESS', { message: "No influencer accounts found", count: 0 }, 'SUCCESS');
+            await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_SUCCESS', { message: "No influencer accounts found", count: 0 }, 'SUCCESS');
             return { success: true, count: 0 };
         }
         
         const batch = adminDb.batch();
-        const rtpUpdate = rtp === null ? FieldValue.delete() : rtp;
+        // If profile is null, we can remove the field or set a default. Let's set a default 'medium'.
+        const profileUpdate = profile === null ? 'medium' : profile;
 
         snapshot.docs.forEach(doc => {
             const userRef = adminDb.collection('users').doc(doc.id);
-            batch.update(userRef, { rtpRate: rtpUpdate });
+            batch.update(userRef, { demoPrizeProfile: profileUpdate });
         });
 
         await batch.commit();
-        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_SUCCESS', { rtp, count: snapshot.size }, 'SUCCESS');
+        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_SUCCESS', { profile, count: snapshot.size }, 'SUCCESS');
         return { success: true, count: snapshot.size };
     } catch (error: any) {
-        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_RTP_FAIL', { error: error.message, rtp }, 'ERROR');
+        await logAdminAction(adminId, 'SYSTEM_INFLUENCERS', 'SET_BULK_DEMO_PROFILE_FAIL', { error: error.message, profile }, 'ERROR');
         return { success: false, error: error.message };
     }
 }
@@ -290,13 +304,4 @@ export async function removeInfluencerRole(userId: string, adminId: string): Pro
         return { success: false, error: "Falha ao remover o cargo de influenciador." };
     }
 }
-export interface InfluencerData {
-    id: string;
-    email: string;
-    name: string;
-    balance: number;
-    rtpRate?: number;
-    createdAt: string | null;
-}
-
     

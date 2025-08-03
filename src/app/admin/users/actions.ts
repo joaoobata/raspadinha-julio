@@ -62,7 +62,8 @@ export interface SearchedUser {
 export async function getUsers(): Promise<{ success: boolean; data?: UserData[]; error?: string }> {
     try {
         const adminDb = getAdminDb();
-        const allUsersSnapshot = await adminDb.collection('users').orderBy('createdAt', 'desc').get();
+        // Limit the initial fetch to the 100 most recent users for performance.
+        const allUsersSnapshot = await adminDb.collection('users').orderBy('createdAt', 'desc').limit(100).get();
 
         if (allUsersSnapshot.empty) {
             return { success: true, data: [] };
@@ -71,13 +72,17 @@ export async function getUsers(): Promise<{ success: boolean; data?: UserData[];
         const allUsersMap = new Map<string, FirebaseFirestore.DocumentData>();
         const referralCountMap = new Map<string, number>();
 
-        allUsersSnapshot.docs.forEach(doc => {
-            const data = doc.data();
-            allUsersMap.set(doc.id, data);
-            if (data.referredBy) {
+        // We need all users to map referredBy to names, this is a trade-off.
+        // For larger scale, this part should be optimized (e.g. denormalizing affiliate name)
+        const allUsersForMapping = await adminDb.collection('users').get();
+        allUsersForMapping.docs.forEach(doc => {
+             const data = doc.data();
+             allUsersMap.set(doc.id, data);
+             if (data.referredBy) {
                 referralCountMap.set(data.referredBy, (referralCountMap.get(data.referredBy) || 0) + 1);
             }
         });
+
 
         const usersData = allUsersSnapshot.docs.map(doc => {
             const data = doc.data();
@@ -109,6 +114,76 @@ export async function getUsers(): Promise<{ success: boolean; data?: UserData[];
     } catch (error: any) {
         console.error("Error fetching users: ", error);
         return { success: false, error: "Falha ao buscar usuários no banco de dados." };
+    }
+}
+
+
+export async function searchUsers(searchTerm: string): Promise<{ success: boolean; data?: UserData[]; error?: string }> {
+    if (!searchTerm || searchTerm.length < 2) {
+        return { success: false, error: "Termo de busca muito curto." };
+    }
+
+    try {
+        const adminDb = getAdminDb();
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        
+        // This is a basic implementation. It fetches all users and filters in memory.
+        // For very large user bases, a more advanced search solution like Algolia or a dedicated search query would be better.
+        const allUsersSnapshot = await adminDb.collection('users').get();
+        
+        const filteredDocs = allUsersSnapshot.docs.filter(doc => {
+            const data = doc.data();
+            const fullName = `${data.firstName || ''} ${data.lastName || ''}`.toLowerCase();
+            const email = (data.email || '').toLowerCase();
+            return fullName.includes(lowerCaseSearchTerm) || email.includes(lowerCaseSearchTerm);
+        });
+
+        if (filteredDocs.length === 0) {
+            return { success: true, data: [] };
+        }
+
+        // Now, get the referral counts and names for the filtered users
+        const allUsersMap = new Map<string, FirebaseFirestore.DocumentData>();
+        const referralCountMap = new Map<string, number>();
+
+        allUsersSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            allUsersMap.set(doc.id, data);
+            if (data.referredBy) {
+                referralCountMap.set(data.referredBy, (referralCountMap.get(data.referredBy) || 0) + 1);
+            }
+        });
+        
+        const usersData = filteredDocs.map(doc => {
+             const data = doc.data();
+            const referredById = data.referredBy || null;
+            const affiliateData = referredById ? allUsersMap.get(referredById) : null;
+            const referredByName = affiliateData ? `${affiliateData.firstName} ${affiliateData.lastName}`.trim() || affiliateData.email : null;
+
+            return {
+                id: doc.id,
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+                email: data.email || '',
+                phone: data.phone || '',
+                cpf: data.cpf || '',
+                balance: data.balance || 0,
+                commissionBalance: data.commissionBalance || 0,
+                createdAt: toISOStringOrNull(data.createdAt),
+                status: data.status || 'active',
+                referredBy: referredById,
+                referredByName: referredByName,
+                roles: data.roles || [],
+                l1ReferralCount: referralCountMap.get(doc.id) || 0,
+                commissionRate: data.commissionRate,
+            } as UserData;
+        });
+
+        return { success: true, data: usersData };
+
+    } catch (error: any) {
+        console.error("Error searching users: ", error);
+        return { success: false, error: "Falha ao buscar usuários." };
     }
 }
 

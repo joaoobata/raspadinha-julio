@@ -16,8 +16,7 @@ async function verifyAdmin(adminId: string): Promise<void> {
     }
     const adminDb = getAdminDb();
     const adminUserDoc = await adminDb.collection('users').doc(adminId).get();
-    const adminData = adminUserDoc.data();
-    if (!adminUserDoc.exists || !adminData?.roles || !adminData.roles.includes('admin')) {
+    if (!adminUserDoc.exists || adminUserDoc.data()?.role !== 'admin') {
         throw new Error("Acesso negado. Apenas administradores podem realizar esta ação.");
     }
 }

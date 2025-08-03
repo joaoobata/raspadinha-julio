@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -18,10 +19,11 @@ import {
   FileText,
   Award,
   Users2,
-  HeartPulse,
   AlertTriangle,
   Wrench,
   Megaphone,
+  Box,
+  HeartPulse, // Ícone para Saúde do Sistema
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -52,6 +54,7 @@ const adminNavSections = [
             { href: '/admin/deposits', label: 'Depósitos', icon: DollarSign },
             { href: '/admin/withdrawals', label: 'Saques', icon: Banknote },
             { href: '/admin/commissions', label: 'Comissões', icon: Handshake },
+            { href: '/admin/ggr-batches', label: 'Loteria (GGR)', icon: Box },
         ]
     },
     {
@@ -66,12 +69,12 @@ const adminNavSections = [
     {
         title: 'Logs e Saúde',
         items: [
-            { href: '/admin/scratchcard-health', label: 'Saúde da Raspadinha', icon: HeartPulse },
             { href: '/admin/commission-logs', label: 'Logs de Comissão', icon: Bug },
             { href: '/admin/system-logs', label: 'Logs do Sistema', icon: FileText },
             { href: '/admin/action-logs', label: 'Logs de Admin', icon: Shield },
             { href: '/admin/logs', label: 'Logs de Erros', icon: AlertTriangle },
-            { href: '/admin/fix-admin', label: 'Corrigir Dados', icon: Wrench },
+            { href: '/admin/system-health', label: 'Saúde do Sistema', icon: HeartPulse }, // Novo item de menu
+            { href: '/admin/fix-admin', label: 'Corrigir Dados', icon: Wrench }, 
         ]
     }
 ];

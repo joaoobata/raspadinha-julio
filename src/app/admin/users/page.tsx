@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { MoreHorizontal, Percent, User, Shield, Crown, Gift, Calendar as CalendarIcon, FilterX, Trash2, Users, UserCog } from "lucide-react";
+import { MoreHorizontal, Percent, User, Shield, Crown, Gift, Calendar as CalendarIcon, FilterX, Trash2, Users, UserCog, Search } from "lucide-react";
 import Link from 'next/link';
 import {
   Card,
@@ -40,54 +40,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Skeleton } from "@/components/ui/skeleton";
-import { getUsers, updateUserStatus, UserData, deleteUser } from './actions';
+import { getUsers, updateUserStatus, UserData, deleteUser, searchUsers } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { EditBalanceDialog } from './EditBalanceDialog';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { DateRange } from 'react-day-picker';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Calendar } from '@/components/ui/calendar';
-import { getSettings } from '../settings/actions';
 import { useDebounce } from 'use-debounce';
 
 export default function AdminUsersPage() {
     const [adminUser] = useAuthState(auth);
     const { toast } = useToast();
-    const [allUsers, setAllUsers] = useState<UserData[]>([]);
+    const [users, setUsers] = useState<UserData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [banAlertInfo, setBanAlertInfo] = useState<{ isOpen: boolean; user: UserData | null }>({ isOpen: false, user: null });
     const [deleteAlertInfo, setDeleteAlertInfo] = useState<{ isOpen: boolean; user: UserData | null }>({ isOpen: false, user: null });
     const [editBalanceInfo, setEditBalanceInfo] = useState<{ isOpen: boolean; user: UserData | null }>({ isOpen: false, user: null });
-    const [globalCommissionRate, setGlobalCommissionRate] = useState<number>(10);
     
-    // Filter states
     const [searchTerm, setSearchTerm] = useState('');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
-    const fetchUsers = useCallback(async () => {
+    const fetchInitialUsers = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const [usersResult, settingsResult] = await Promise.all([
-                getUsers(),
-                getSettings()
-            ]);
-
+            const usersResult = await getUsers(); // Gets the initial, latest users
             if (usersResult.success && usersResult.data) {
-                setAllUsers(usersResult.data);
+                setUsers(usersResult.data);
             } else {
                 setError(usersResult.error || 'Falha ao carregar usuários.');
             }
-
-            if (settingsResult.success && settingsResult.data?.commissionRateL1) {
-                setGlobalCommissionRate(settingsResult.data.commissionRateL1);
-            }
-
         } catch (err: any) {
              setError('Ocorreu um erro inesperado.');
         } finally {
@@ -95,44 +77,38 @@ export default function AdminUsersPage() {
         }
     }, []);
 
+    const performSearch = useCallback(async (term: string) => {
+        if (!term) {
+            fetchInitialUsers();
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await searchUsers(term);
+            if (result.success && result.data) {
+                setUsers(result.data);
+            } else {
+                setError(result.error || 'Falha na busca.');
+                setUsers([]);
+            }
+        } catch(e) {
+            setError('Ocorreu um erro inesperado na busca.');
+            setUsers([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchInitialUsers]);
+
     useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
+        performSearch(debouncedSearchTerm);
+    }, [debouncedSearchTerm, performSearch]);
     
-    const filteredUsers = useMemo(() => {
-        let users = [...allUsers];
-        const termLower = searchTerm.toLowerCase();
-
-        if (termLower) {
-             users = users.filter(user => {
-                const searchableString = [
-                    user.firstName,
-                    user.lastName,
-                    `${user.firstName} ${user.lastName}`,
-                    user.email,
-                    user.phone
-                ].filter(Boolean).join(' ').toLowerCase();
-                return searchableString.includes(termLower);
-            });
-        }
-
-        if (dateRange?.from) {
-            users = users.filter(user => user.createdAt && new Date(user.createdAt) >= dateRange.from!);
-        }
-        if (dateRange?.to) {
-            const toDate = new Date(dateRange.to);
-            toDate.setHours(23, 59, 59, 999);
-            users = users.filter(user => user.createdAt && new Date(user.createdAt) <= toDate);
-        }
-
-        return users;
-    }, [allUsers, searchTerm, dateRange]);
+    useEffect(() => {
+        // Load initial users when component mounts
+        fetchInitialUsers();
+    }, [fetchInitialUsers]);
     
-    const clearFilters = () => {
-        setSearchTerm('');
-        setDateRange(undefined);
-    }
-
     const handleUpdateStatus = async () => {
         if (!banAlertInfo.user || !adminUser) return;
         
@@ -141,7 +117,7 @@ export default function AdminUsersPage() {
 
         if (result.success) {
             toast({ title: "Sucesso!", description: `Usuário ${newStatus === 'banned' ? 'banido' : 'reativado'} com sucesso.` });
-            await fetchUsers(); 
+            performSearch(debouncedSearchTerm);
         } else {
             toast({ variant: "destructive", title: "Erro!", description: result.error });
         }
@@ -155,7 +131,7 @@ export default function AdminUsersPage() {
 
         if (result.success) {
             toast({ title: "Sucesso!", description: `Usuário ${deleteAlertInfo.user.firstName} foi excluído permanentemente.` });
-            await fetchUsers(); 
+             performSearch(debouncedSearchTerm);
         } else {
             toast({ variant: "destructive", title: "Erro!", description: result.error });
         }
@@ -194,16 +170,15 @@ export default function AdminUsersPage() {
 
 
     const renderSkeleton = () => (
-        Array.from({ length: 5 }).map((_, i) => (
+        Array.from({ length: 10 }).map((_, i) => (
             <TableRow key={i}>
-                <TableCell><Skeleton className="h-10 w-10 rounded-full" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell><Skeleton className="h-10 w-full" /></TableCell>
+                <TableCell className="hidden sm:table-cell"><Skeleton className="h-10 w-full" /></TableCell>
                 <TableCell><Skeleton className="h-8 w-8" /></TableCell>
             </TableRow>
         ))
@@ -215,53 +190,18 @@ export default function AdminUsersPage() {
                 <CardHeader>
                     <CardTitle>Usuários</CardTitle>
                     <CardDescription>
-                        Visualize e gerencie os usuários e afiliados da plataforma.
+                        Visualize e gerencie os usuários da plataforma. A busca é feita por nome, sobrenome ou email.
                     </CardDescription>
                     <div className="flex items-center gap-2 pt-4">
-                        <Input 
-                            placeholder="Pesquisar por nome, email, telefone..." 
-                            className="max-w-sm"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                         />
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                                "w-[260px] justify-start text-left font-normal",
-                                !dateRange && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (
-                                dateRange.to ? (
-                                <>
-                                    {format(dateRange.from, "dd/MM/y")} -{" "}
-                                    {format(dateRange.to, "dd/MM/y")}
-                                </>
-                                ) : (
-                                format(dateRange.from, "dd/MM/y")
-                                )
-                            ) : (
-                                <span>Filtrar por data</span>
-                            )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange?.from}
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                                locale={ptBR}
+                        <div className="relative flex-grow">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input 
+                                placeholder="Pesquisar usuários..." 
+                                className="pl-10"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                        </PopoverContent>
-                        </Popover>
-                         {(searchTerm || dateRange) && <Button variant="ghost" onClick={clearFilters}><FilterX className="mr-2" />Limpar</Button>}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -271,7 +211,6 @@ export default function AdminUsersPage() {
                                 <TableHead>Usuário</TableHead>
                                 <TableHead>Cargos</TableHead>
                                 <TableHead>Indicado Por</TableHead>
-                                <TableHead>Comissão L1 (%)</TableHead>
                                 <TableHead>Indicados (N1)</TableHead>
                                 <TableHead>Saldo</TableHead>
                                 <TableHead>Data de Cadastro</TableHead>
@@ -285,18 +224,18 @@ export default function AdminUsersPage() {
                                 renderSkeleton()
                             ) : error ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center text-destructive">
+                                    <TableCell colSpan={7} className="h-24 text-center text-destructive">
                                         {error}
                                     </TableCell>
                                 </TableRow>
-                            ) : filteredUsers.length === 0 ? (
+                            ) : users.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center">
-                                        Nenhum usuário encontrado com os filtros atuais.
+                                    <TableCell colSpan={7} className="h-24 text-center">
+                                        {debouncedSearchTerm ? `Nenhum usuário encontrado para "${debouncedSearchTerm}".` : "Nenhum usuário encontrado."}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredUsers.map((user) => (
+                                users.map((user) => (
                                     <TableRow key={user.id} className={user.status === 'banned' ? 'opacity-50' : ''}>
                                         <TableCell>
                                             <div className="font-medium">{user.firstName} {user.lastName}</div>
@@ -315,9 +254,6 @@ export default function AdminUsersPage() {
                                             ) : (
                                                 <span className="text-xs text-muted-foreground">-</span>
                                             )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{user.commissionRate ?? globalCommissionRate}%</Badge>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
@@ -366,7 +302,7 @@ export default function AdminUsersPage() {
                 </CardContent>
                 <CardFooter>
                     <div className="text-xs text-muted-foreground">
-                        Mostrando <strong>{filteredUsers.length}</strong> usuários
+                        Mostrando <strong>{users.length}</strong> usuários
                     </div>
                 </CardFooter>
             </Card>
@@ -413,7 +349,7 @@ export default function AdminUsersPage() {
                     isOpen={editBalanceInfo.isOpen}
                     onOpenChange={(isOpen) => setEditBalanceInfo({ isOpen, user: isOpen ? editBalanceInfo.user : null })}
                     user={editBalanceInfo.user as UserData}
-                    onBalanceUpdate={fetchUsers}
+                    onBalanceUpdate={() => performSearch(debouncedSearchTerm)}
                     adminId={adminUser.uid}
                 />
             )}

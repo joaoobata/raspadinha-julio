@@ -9,7 +9,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { getFirebaseAuth, getFirestoreDb } from '@/lib/firebase';
 import { 
     ArrowLeft, User, Wallet, Landmark, Banknote, History, Gift, Users as UsersIcon, 
-    Percent, Pencil, Shield, Crown, TrendingUp, TrendingDown, Coins, PlusCircle, Gamepad2, Handshake, Lock, Edit, ChevronDown, Search, Link2, LoaderCircle
+    Percent, Pencil, Shield, Crown, TrendingUp, TrendingDown, Coins, PlusCircle, Gamepad2, Handshake, Lock, Edit, ChevronDown, Search, Link2, LoaderCircle, Award
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { 
     getUserDetails, getUserLedger, UserDetailsData, LedgerEntry, UserRole, 
-    updateUserRoles, updateUserRtp, LedgerEntryType, DirectReferral, updateUserPostbackUrl
+    updateUserRoles, updateUserDemoProfile, LedgerEntryType, DirectReferral, updateUserPostbackUrl, DemoPrizeProfile
 } from './actions';
 import { Separator } from '@/components/ui/separator';
 import { UserDetailsCommissionDialogL1 } from './UserDetailsCommissionDialog';
@@ -38,6 +38,8 @@ import { getSettings } from '../../settings/actions';
 import { EditCustomCommissionDialog } from './EditCustomCommissionDialog';
 import { EditAffiliateDialog } from './EditAffiliateDialog';
 import { EditBalanceDialog } from '../EditBalanceDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 const auth = getFirebaseAuth();
 
@@ -153,9 +155,9 @@ export default function UserDetailsPage() {
     const [isEditAffiliateDialogOpen, setIsEditAffiliateDialogOpen] = useState(false);
     const [isEditBalanceDialogOpen, setIsEditBalanceDialogOpen] = useState(false);
     const [isSavingRoles, setIsSavingRoles] = useState(false);
-    const [isSavingRtp, setIsSavingRtp] = useState(false);
+    const [isSavingDemoProfile, setIsSavingDemoProfile] = useState(false);
     const [isSavingPostback, setIsSavingPostback] = useState(false);
-    const [customRtp, setCustomRtp] = useState('');
+    const [demoProfile, setDemoProfile] = useState<DemoPrizeProfile>('medium');
     const [postbackUrl, setPostbackUrl] = useState('');
     const [globalSettings, setGlobalSettings] = useState<{commissionRateL1?: number, commissionRateL2?: number, commissionRateL3?: number}>({});
     const [editingCustomCommission, setEditingCustomCommission] = useState<DirectReferral | null>(null);
@@ -179,7 +181,7 @@ export default function UserDetailsPage() {
 
             if (detailsResult.success && detailsResult.data) {
                 setUser(detailsResult.data);
-                setCustomRtp(detailsResult.data.rtpRate?.toString() || '');
+                setDemoProfile(detailsResult.data.demoPrizeProfile || 'medium');
                 setPostbackUrl(detailsResult.data.postbackUrl || '');
             } else {
                 setError(detailsResult.error || 'Falha ao buscar detalhes do usuário.');
@@ -251,18 +253,17 @@ export default function UserDetailsPage() {
         setIsSavingRoles(false);
     };
 
-    const handleRtpSave = async () => {
+    const handleDemoProfileSave = async () => {
         if (!user || !adminUser) return;
-        setIsSavingRtp(true);
-        const rateValue = customRtp === '' ? null : parseFloat(customRtp);
-        const result = await updateUserRtp(user.id, rateValue, adminUser.uid);
+        setIsSavingDemoProfile(true);
+        const result = await updateUserDemoProfile(user.id, demoProfile, adminUser.uid);
         if (result.success) {
-            toast({ title: "Sucesso!", description: "RTP do influenciador atualizado." });
+            toast({ title: "Sucesso!", description: "Perfil de prêmio do influenciador atualizado." });
             await fetchUserDetails();
         } else {
             toast({ variant: 'destructive', title: "Erro!", description: result.error });
         }
-        setIsSavingRtp(false);
+        setIsSavingDemoProfile(false);
     }
     
      const handlePostbackSave = async () => {
@@ -597,24 +598,26 @@ export default function UserDetailsPage() {
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-xs text-muted-foreground">Admins e Afiliados acessam o painel. Influencers têm RTP customizado.</p>
+                            <p className="text-xs text-muted-foreground">Admins e Afiliados acessam o painel. Influencers têm configurações de demonstração.</p>
                          </div>
                          {(user.roles?.includes('influencer')) && (
                             <div className="space-y-2 pt-4 border-t">
-                                <Label htmlFor="rtp-rate">Taxa de RTP Customizada do Influenciador (%)</Label>
+                                <Label htmlFor="demo-profile" className="flex items-center gap-2"><Award /> Perfil de Prêmio (Demo)</Label>
                                 <div className="flex gap-2">
-                                    <Input 
-                                        id="rtp-rate" 
-                                        type="number" 
-                                        placeholder="RTP Global"
-                                        value={customRtp}
-                                        onChange={(e) => setCustomRtp(e.target.value)}
-                                        disabled={isSavingRtp}
-                                    />
-                                    <Button onClick={handleRtpSave} disabled={isSavingRtp}>Salvar RTP</Button>
+                                     <Select value={demoProfile} onValueChange={(value: DemoPrizeProfile) => setDemoProfile(value)}>
+                                        <SelectTrigger id="demo-profile">
+                                            <SelectValue placeholder="Selecione um perfil" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="low">Baixo</SelectItem>
+                                            <SelectItem value="medium">Médio</SelectItem>
+                                            <SelectItem value="high">Alto</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={handleDemoProfileSave} disabled={isSavingDemoProfile}>Salvar Perfil</Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Defina uma taxa de retorno específica para este influenciador. Deixe em branco para usar o padrão global.
+                                    Define a frequência de prêmios altos para esta conta de demonstração.
                                 </p>
                              </div>
                          )}

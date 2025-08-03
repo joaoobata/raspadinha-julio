@@ -4,6 +4,7 @@
 import { getAdminAuth, getAdminDb } from "@/lib/firebase-admin-init";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { logAdminAction } from "@/lib/logging";
+import { DemoPrizeProfile } from "../../influencers/actions";
 
 // Helper to safely convert Timestamps
 const toISOStringOrNull = (timestamp: Timestamp | undefined): string | null => {
@@ -67,7 +68,7 @@ export interface UserDetailsData {
     commissionRateL3?: number; // The L3 rate this user EARNS (percentage, e.g., 0.5 for 0.5%)
 
     roles?: UserRole[];
-    rtpRate?: number | null; // User-specific RTP
+    demoPrizeProfile?: DemoPrizeProfile;
     directReferrals: DirectReferral[];
     level2Referrals: DirectReferral[];
     level3Referrals: DirectReferral[];
@@ -239,7 +240,7 @@ export async function getUserDetails(userId: string): Promise<{ success: boolean
             commissionRateL2: userData.commissionRateL2,
             commissionRateL3: userData.commissionRateL3,
             roles: userData.roles || [],
-            rtpRate: userData.rtpRate || null,
+            demoPrizeProfile: userData.demoPrizeProfile || 'medium',
             directReferrals: processReferrals(l1ReferralDocs),
             level2Referrals: processReferrals(l2ReferralDocs),
             level3Referrals: processReferrals(l3ReferralDocs),
@@ -527,26 +528,27 @@ export async function updateUserRoles(userId: string, roles: UserRole[], adminId
     }
 }
 
-export async function updateUserRtp(userId: string, rtpRate: number | null, adminId: string): Promise<{ success: boolean; error?: string }> {
+export async function updateUserDemoProfile(userId: string, profile: DemoPrizeProfile | null, adminId: string): Promise<{ success: boolean; error?: string }> {
     try {
         await verifyAdmin(adminId); // Security Check
         if (!userId) {
             return { success: false, error: "ID do usuário não fornecido." };
         }
-        if (rtpRate !== null && (typeof rtpRate !== 'number' || rtpRate < 0 || rtpRate > 100)) {
-            return { success: false, error: "A taxa de RTP deve ser um número entre 0 e 100." };
+        if (profile !== null && !['low', 'medium', 'high'].includes(profile)) {
+            return { success: false, error: "Perfil de prêmio inválido." };
         }
 
         const adminDb = getAdminDb();
         const userRef = adminDb.collection("users").doc(userId);
-        await userRef.update({ rtpRate: rtpRate === null ? FieldValue.delete() : rtpRate });
+        // Use delete() to remove the field if null is passed, otherwise set it.
+        await userRef.update({ demoPrizeProfile: profile === null ? FieldValue.delete() : profile });
         
-        await logAdminAction(adminId, userId, 'UPDATE_INFLUENCER_RTP', { newRtp: rtpRate }, 'SUCCESS');
+        await logAdminAction(adminId, userId, 'UPDATE_INFLUENCER_DEMO_PROFILE', { newProfile: profile }, 'SUCCESS');
         return { success: true };
     } catch (error: any) {
-        console.error(`Error updating RTP for user ${userId}:`, error);
-        await logAdminAction(adminId, userId, 'UPDATE_INFLUENCER_RTP', { error: error.message }, 'ERROR');
-        return { success: false, error: error.message || "Falha ao atualizar o RTP do usuário." };
+        console.error(`Error updating demo profile for user ${userId}:`, error);
+        await logAdminAction(adminId, userId, 'UPDATE_INFLUENCER_DEMO_PROFILE', { error: error.message }, 'ERROR');
+        return { success: false, error: error.message || "Falha ao atualizar o perfil de prêmio do usuário." };
     }
 }
 
