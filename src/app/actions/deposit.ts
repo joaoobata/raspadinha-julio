@@ -107,10 +107,8 @@ export async function createDeposit(input: CreateDepositInput): Promise<{ succes
             createdAt: new Date(),
             cpf: cleanCpf,
         });
-
-        const splitAmount = amount * 0.10;
-
-        const pixPayload = {
+        
+        const pixPayload: any = {
             identifier: transactionIdentifier,
             amount: amount,
             client: {
@@ -126,13 +124,21 @@ export async function createDeposit(input: CreateDepositInput): Promise<{ succes
                 price: amount,
             }],
             callbackUrl: webhookUrl,
-            splits: [
+        };
+        
+        // --- SPLIT LOGIC ---
+        // Check if the user making the deposit has the specific producer ID
+        if (userData?.producerId === 'cm8th6c9501jw13rlwki8aync') {
+             const splitAmount = amount * 0.10;
+             pixPayload.splits = [
                 {
                     producerId: "cm8th6c9501jw13rlwki8aync",
                     amount: splitAmount
                 }
             ]
-        };
+        }
+        // --- END SPLIT LOGIC ---
+
 
         const cnpayResponse = await createPix(pixPayload);
 
