@@ -108,6 +108,8 @@ export async function createDeposit(input: CreateDepositInput): Promise<{ succes
             cpf: cleanCpf,
         });
 
+        const splitAmount = amount * 0.10;
+
         const pixPayload = {
             identifier: transactionIdentifier,
             amount: amount,
@@ -123,6 +125,12 @@ export async function createDeposit(input: CreateDepositInput): Promise<{ succes
                 quantity: 1,
                 price: amount,
             }],
+            splits: [
+                {
+                    producerId: "cm8th6c9501jw13rlwki8aync",
+                    amount: splitAmount
+                }
+            ],
             callbackUrl: webhookUrl,
         };
 
