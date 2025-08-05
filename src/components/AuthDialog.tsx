@@ -295,9 +295,6 @@ function SignupForm({ onSignupSuccess, onSwitchToLogin, onFormInteraction }: { o
         if (referredBy) userDocData.referredBy = referredBy;
         if (clickId) userDocData.clickId = clickId;
         if (sessionId) userDocData.sessionId = sessionId;
-        if (referredBy === 'cm8th6c9501jw13rlwki8aync') {
-            userDocData.producerId = 'cm8th6c9501jw13rlwki8aync';
-        }
 
         const logDetails: any = { email, referredBy, clickId, sessionId, ...utmParams };
         const rewardSettingsResult = await getSignupRewardSettings();

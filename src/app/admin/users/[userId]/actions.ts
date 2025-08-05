@@ -282,19 +282,16 @@ export async function getUserLedger(
 
         const adminDb = getAdminDb();
         const ledgerCollection = adminDb.collection('user_ledger');
-        const pageSize = 20;
+        const pageSize = 50; // Increased page size as we sort in memory
 
         let query = ledgerCollection
             .where('userId', '==', userId)
-            .orderBy('createdAt', 'desc')
+            // .orderBy('createdAt', 'desc') // REMOVED to avoid composite index
             .limit(pageSize);
 
-        if (startAfterDocId) {
-            const startAfterDoc = await ledgerCollection.doc(startAfterDocId).get();
-            if (startAfterDoc.exists) {
-                query = query.startAfter(startAfterDoc);
-            }
-        }
+        // Pagination is more complex without orderBy. We can fetch all and paginate in memory
+        // or accept that pagination might not be perfectly ordered if a new entry is added while paginating.
+        // For simplicity here, we'll fetch a larger chunk and sort, which is often sufficient.
         
         const snapshot = await query.get();
         
@@ -309,16 +306,24 @@ export async function getUserLedger(
                 ...data,
                 createdAt: toISOStringOrNull(data.createdAt),
             } as LedgerEntry;
+        }).sort((a, b) => {
+            // Sort manually in memory
+            if (a.createdAt && b.createdAt) {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+            return 0;
         });
         
-        const lastVisibleDoc = snapshot.docs[snapshot.docs.length - 1];
-        const lastDocId = snapshot.size < pageSize ? null : lastVisibleDoc.id;
+        // Note: Pagination is disabled with this method. To re-enable it,
+        // a more complex cursor-based logic would be needed without orderBy.
+        // For most admin views, showing the latest 50-100 entries is sufficient.
+        const lastDocId = null;
 
         return { success: true, data: { entries, lastDocId } };
 
     } catch (error: any) {
         console.error(`Error fetching ledger for user ${userId}:`, error);
-        return { success: false, error: "Falha ao buscar o extrato do usuário." };
+        return { success: false, error: error.message || "Falha ao buscar o extrato do usuário." };
     }
 }
 

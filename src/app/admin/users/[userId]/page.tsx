@@ -358,14 +358,14 @@ export default function UserDetailsPage() {
     return (
         <>
         <div className="space-y-6">
-            <div className='flex justify-between items-start'>
+            <div className='flex flex-col sm:flex-row justify-between sm:items-start gap-4'>
                 <div>
                     <Button asChild variant="outline" size="sm" className="mb-4">
                         <Link href="/admin/users"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Link>
                     </Button>
                     <h1 className="text-3xl font-bold">Detalhes de {user.firstName} {user.lastName}</h1>
                 </div>
-                 <div className='flex items-center gap-2'>
+                 <div className='flex flex-wrap items-center gap-2'>
                     <Button variant="secondary" onClick={() => setIsEditBalanceDialogOpen(true)}>
                         <Wallet className="mr-2 h-4 w-4" /> Editar Saldo
                     </Button>
@@ -527,7 +527,7 @@ export default function UserDetailsPage() {
             
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                         <div>
                             <CardTitle>Rede de Indicação</CardTitle>
                             <CardDescription>Visualize toda a rede de indicados deste usuário.</CardDescription>

@@ -53,9 +53,9 @@ export const getSettings = cache(async (): Promise<{ success: boolean; data?: Se
                 commissionRateL3: 0, 
                 logoUrl: '', 
                 rolloverMultiplier: 1,
-                colorPrimary: '142.1 76.2% 41.2%',
-                colorBackground: '240 10% 3.9%',
-                colorAccent: '142.1 76.2% 41.2%',
+                colorPrimary: '217.2 91.2% 59.8%',
+                colorBackground: '222.2 84% 4.9%',
+                colorAccent: '217.2 91.2% 59.8%',
                 customHeadScript: '',
                 soundWinUrl: '',
                 soundLoseUrl: '',
@@ -69,9 +69,9 @@ export const getSettings = cache(async (): Promise<{ success: boolean; data?: Se
         if (data.commissionRateL3 === undefined) data.commissionRateL3 = 0;
         if (data.logoUrl === undefined) data.logoUrl = '';
         if (data.rolloverMultiplier === undefined) data.rolloverMultiplier = 1;
-        if (data.colorPrimary === undefined) data.colorPrimary = '142.1 76.2% 41.2%';
-        if (data.colorBackground === undefined) data.colorBackground = '240 10% 3.9%';
-        if (data.colorAccent === undefined) data.colorAccent = '142.1 76.2% 41.2%';
+        if (data.colorPrimary === undefined) data.colorPrimary = '217.2 91.2% 59.8%';
+        if (data.colorBackground === undefined) data.colorBackground = '222.2 84% 4.9%';
+        if (data.colorAccent === undefined) data.colorAccent = '217.2 91.2% 59.8%';
         if (data.customHeadScript === undefined) data.customHeadScript = '';
         if (data.soundWinUrl === undefined) data.soundWinUrl = '';
         if (data.soundLoseUrl === undefined) data.soundLoseUrl = '';

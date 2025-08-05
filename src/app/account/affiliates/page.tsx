@@ -225,7 +225,7 @@ export default function AffiliatesPage() {
                             </div>
                         )}
                     </div>
-                    <div className="space-y-6">
+                    <div className="space-y-6 lg:sticky lg:top-8">
                         <Card className="bg-primary/20 border-primary/40">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2"><Gift /> Saldo de Comissão</CardTitle>
@@ -275,5 +275,3 @@ export default function AffiliatesPage() {
         </div>
     );
 }
-
-    

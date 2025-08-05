@@ -13,7 +13,7 @@ import {
     TrafficAnalyticData, 
     CampaignPerformanceData,
 } from '@/app/affiliate-panel/actions';
-import { claimCommissionBalance } from '@/app/affiliates/actions'; // Re-using this action
+import { claimCommissionBalance } from '@/app/account/affiliates/actions'; // Re-using this action
 import { Button } from '@/components/ui/button';
 import { LoaderCircle, UserPlus, Users, DollarSign, Handshake, Gift, RefreshCw, Pointer, LineChart as LineChartIcon, Search, Smartphone, Monitor, Link as LinkIcon, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -212,7 +212,7 @@ export default function AffiliatePanelPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Select value={period} onValueChange={(value: Period) => setPeriod(value)}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                             <SelectValue placeholder="Selecione o período" />
                         </SelectTrigger>
                         <SelectContent>
